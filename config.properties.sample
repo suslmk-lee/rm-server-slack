@@ -1,0 +1,8 @@
+nhn.storage.accessKey=
+nhn.storage.secretKey=
+nhn.region=KR1
+nhn.service.name=s3
+nhn.storage.bucket.name=suslmk-storage
+nhn.storage.endpoint.url=kr1-api-object-storage.nhncloudservice.com
+
+database.url=root:ahsus123@tcp(localhost:3307)/?parseTime=true
