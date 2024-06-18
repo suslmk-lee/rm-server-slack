@@ -30,7 +30,7 @@ func init() {
 }
 
 func main() {
-	s3Client, err := storage.NewS3Client(region, endpoint, accessKey, secretKey)
+	s3Client, err := storage.NewS3Client(region, endpoint, accessKey, secretKey, bucketName)
 	if err != nil {
 		logrus.Fatalf("Failed to create session: %v", err)
 	}
@@ -50,14 +50,16 @@ func main() {
 }
 
 func processBucket(s3Client *storage.S3Client) {
-	events, err := s3Client.GetEvents(bucketName)
+	events, err := s3Client.GetEvents()
 	if err != nil {
 		logrus.Errorf("Failed to get events: %v", err)
 		return
 	}
 
 	for _, event := range events {
-		notification.SendSlackNotification(event)
+		if shouldSendNotification(event) {
+			notification.SendSlackNotification(event)
+		}
 	}
 }
 
@@ -67,6 +69,14 @@ func isBusinessHour() bool {
 	hour := now.Hour()
 
 	if day >= time.Monday && day <= time.Friday && hour >= 9 && hour < 18 {
+		return true
+	}
+	return false
+}
+
+func shouldSendNotification(event storage.CloudEvent) bool {
+	// 필터링 정책정의
+	if event.EventType == "ALERT" || event.EventType == "CRITICAL" {
 		return true
 	}
 	return false
