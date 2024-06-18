@@ -4,6 +4,7 @@ import (
 	"rm-server-slack/common"
 	"rm-server-slack/notification"
 	"rm-server-slack/storage"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -14,11 +15,13 @@ const (
 )
 
 var (
-	bucketName string
-	region     string
-	endpoint   string
-	accessKey  string
-	secretKey  string
+	bucketName      string
+	region          string
+	endpoint        string
+	accessKey       string
+	secretKey       string
+	processedEvents = make(map[string]bool)
+	mutex           = &sync.Mutex{}
 )
 
 func init() {
@@ -50,15 +53,23 @@ func main() {
 }
 
 func processBucket(s3Client *storage.S3Client) {
-	events, err := s3Client.GetEvents()
+	events, err := s3Client.GetEvents("issues/")
 	if err != nil {
 		logrus.Errorf("Failed to get events: %v", err)
 		return
 	}
 
 	for _, event := range events {
-		if shouldSendNotification(event) {
-			notification.SendSlackNotification(event)
+		mutex.Lock()
+		if !processedEvents[event.ID] {
+			processedEvents[event.ID] = true
+			mutex.Unlock()
+
+			if shouldSendNotification(event) {
+				notification.SendSlackNotification(event)
+			}
+		} else {
+			mutex.Unlock()
 		}
 	}
 }
@@ -75,8 +86,8 @@ func isBusinessHour() bool {
 }
 
 func shouldSendNotification(event storage.CloudEvent) bool {
-	// 필터링 정책정의
-	if event.EventType == "ALERT" || event.EventType == "CRITICAL" {
+	// 필터링 정책을 정의합니다. 예를 들어, 특정 이벤트 유형에 대해서만 알림을 보냅니다.
+	if event.Type == "com.example.issue" && event.Data.Status == "접수(Receipt)" {
 		return true
 	}
 	return false

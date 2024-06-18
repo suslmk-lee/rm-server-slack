@@ -14,13 +14,13 @@ import (
 var slackToken = "your-slack-bot-token"
 
 func SendSlackNotification(event storage.CloudEvent) {
-	userID := getSlackUserIDByEmail(event.Email)
+	userID := getSlackUserIDByEmail(event.Data.Commentor)
 	if userID == "" {
-		logrus.Errorf("Failed to get Slack user ID for email: %s", event.Email)
+		logrus.Errorf("Failed to get Slack user ID for email: %s", event.Data.Commentor)
 		return
 	}
 
-	message := fmt.Sprintf("New Event\nType: %s\nUser: %s\nMessage: %s", event.EventType, event.User, event.Message)
+	message := fmt.Sprintf("New Event\nType: %s\nUser: %s\nMessage: %s\nDescription: %s\nNotes: %s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes)
 	payload := map[string]string{"channel": userID, "text": message}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
