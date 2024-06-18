@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
 	"rm-server-slack/common"
 	"rm-server-slack/notification"
 	"rm-server-slack/storage"
@@ -11,7 +13,8 @@ import (
 )
 
 const (
-	checkInterval = 10 * time.Second
+	checkInterval       = 10 * time.Second
+	processedEventsFile = "processed_events.json"
 )
 
 var (
@@ -20,7 +23,7 @@ var (
 	endpoint        string
 	accessKey       string
 	secretKey       string
-	processedEvents = make(map[string]bool)
+	processedEvents map[string]bool
 	mutex           = &sync.Mutex{}
 )
 
@@ -30,6 +33,8 @@ func init() {
 	endpoint = common.ConfInfo["nhn.storage.endpoint.url"]
 	accessKey = common.ConfInfo["nhn.storage.accessKey"]
 	secretKey = common.ConfInfo["nhn.storage.secretKey"]
+
+	processedEvents = loadProcessedEvents()
 }
 
 func main() {
@@ -63,6 +68,7 @@ func processBucket(s3Client *storage.S3Client) {
 		mutex.Lock()
 		if !processedEvents[event.ID] {
 			processedEvents[event.ID] = true
+			saveProcessedEvents()
 			mutex.Unlock()
 
 			if shouldSendNotification(event) {
@@ -91,4 +97,40 @@ func shouldSendNotification(event storage.CloudEvent) bool {
 		return true
 	}
 	return false
+}
+
+func loadProcessedEvents() map[string]bool {
+	file, err := os.Open(processedEventsFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return make(map[string]bool)
+		}
+		logrus.Fatalf("Failed to open processed events file: %v", err)
+	}
+	defer file.Close()
+
+	var events map[string]bool
+	err = json.NewDecoder(file).Decode(&events)
+	if err != nil {
+		if err.Error() == "EOF" {
+			return make(map[string]bool)
+		}
+		logrus.Fatalf("Failed to decode processed events file: %v", err)
+	}
+
+	return events
+}
+
+func saveProcessedEvents() {
+	file, err := os.Create(processedEventsFile)
+	if err != nil {
+		logrus.Errorf("Failed to create processed events file: %v", err)
+		return
+	}
+	defer file.Close()
+
+	err = json.NewEncoder(file).Encode(processedEvents)
+	if err != nil {
+		logrus.Errorf("Failed to encode processed events file: %v", err)
+	}
 }

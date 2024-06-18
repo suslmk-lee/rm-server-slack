@@ -6,15 +6,26 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"rm-server-slack/common"
 	"rm-server-slack/storage"
 
 	"github.com/sirupsen/logrus"
 )
 
-var slackToken = "your-slack-bot-token"
+// alarm-app bot Token
+var slackToken string
+var receiverEmail string
+
+func init() {
+	slackToken = common.ConfInfo["slack.bot.token"]
+	receiverEmail = common.ConfInfo["slack.receiver.email"]
+
+	fmt.Printf("receiverEmail: %s\n", receiverEmail)
+}
 
 func SendSlackNotification(event storage.CloudEvent) {
-	userID := getSlackUserIDByEmail(event.Data.Commentor)
+	//userID := getSlackUserIDByEmail(event.Data.Commentor)
+	userID := getSlackUserIDByEmail(receiverEmail)
 	if userID == "" {
 		logrus.Errorf("Failed to get Slack user ID for email: %s", event.Data.Commentor)
 		return
