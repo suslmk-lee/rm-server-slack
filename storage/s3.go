@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -52,6 +54,11 @@ func NewS3Client(region, endpoint, accessKey, secretKey, bucket string) (*S3Clie
 		Endpoint:         aws.String(endpoint),
 		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
 		S3ForcePathStyle: aws.Bool(true), // 경로 스타일을 강제 설정
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // TLS 검증 비활성화
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
