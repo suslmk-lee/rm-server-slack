@@ -123,6 +123,13 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			"type": "section",
 			"text": map[string]string{
 				"type": "mrkdwn",
+				"text": "*------------------------------*",
+			},
+		},
+		{
+			"type": "section",
+			"text": map[string]string{
+				"type": "mrkdwn",
 				"text": fmt.Sprintf("*New Event*\n*Type:* %s\n*User:* %s\n*Message:* %s\n*Description:* %s\n*Notes:* %s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes),
 			},
 		},
