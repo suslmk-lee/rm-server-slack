@@ -49,8 +49,9 @@ func main() {
 	// 바로 버킷을 확인
 	processBucket(s3Client)
 
+	// 단일 작업으로 변경하며 아래내용 주석 처리 함.
 	// 주기적으로 버킷을 확인하기 위한 ticker 설정
-	ticker := time.NewTicker(checkInterval)
+	/*ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
 	for {
@@ -60,7 +61,7 @@ func main() {
 				processBucket(s3Client)
 			}
 		}
-	}
+	}*/
 }
 
 func processBucket(s3Client *storage.S3Client) {
@@ -71,23 +72,24 @@ func processBucket(s3Client *storage.S3Client) {
 	}
 
 	for _, event := range events {
-		mutex.Lock()
+		//mutex.Lock()
 		if event.Time.After(lastProcessedTime) {
 			lastProcessedTime = event.Time
 			saveLastProcessedTime()
-			mutex.Unlock()
+			//mutex.Unlock()
 
 			if shouldSendNotification(event) {
 				notification.SendSlackNotification(event)
-				err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
-				if err != nil {
-					logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
-				}
+				//err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
+				//if err != nil {
+				//	logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
+				//}
 			}
 		} else {
-			mutex.Unlock()
+			//mutex.Unlock()
 		}
 	}
+	logrus.Infof("All events processed. Exiting program.")
 }
 
 func isBusinessHour() bool {
