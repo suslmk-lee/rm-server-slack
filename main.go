@@ -25,6 +25,7 @@ var (
 	secretKey       string
 	processedEvents map[string]bool
 	mutex           = &sync.Mutex{}
+	kst             *time.Location
 )
 
 func init() {
@@ -36,6 +37,12 @@ func init() {
 
 	logrus.Printf("init() processedEvents calls")
 	processedEvents = loadProcessedEvents()
+
+	var err error
+	kst, err = time.LoadLocation("Asia/Seoul")
+	if err != nil {
+		logrus.Fatalf("Failed to load location: %v", err)
+	}
 }
 
 func main() {
@@ -86,7 +93,7 @@ func processBucket(s3Client *storage.S3Client) {
 }
 
 func isBusinessHour() bool {
-	now := time.Now()
+	now := time.Now().In(kst)
 	day := now.Weekday()
 	hour := now.Hour()
 
