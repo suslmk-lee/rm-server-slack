@@ -51,6 +51,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			if isBusinessHour() {
+				logrus.Printf("processBucket(s3Client) called!")
 				processBucket(s3Client)
 			}
 		}
@@ -63,6 +64,7 @@ func processBucket(s3Client *storage.S3Client) {
 		logrus.Errorf("Failed to get events: %v", err)
 		return
 	}
+	logrus.Printf("Received %d events", len(events))
 
 	for _, event := range events {
 		mutex.Lock()
@@ -72,6 +74,7 @@ func processBucket(s3Client *storage.S3Client) {
 			mutex.Unlock()
 
 			if shouldSendNotification(event) {
+				logrus.Printf("Send Slack notification: %s", event.ID)
 				notification.SendSlackNotification(event)
 			}
 		} else {
