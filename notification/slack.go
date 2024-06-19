@@ -2,6 +2,7 @@ package notification
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -48,7 +49,11 @@ func SendSlackNotification(event storage.CloudEvent) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+slackToken)
 
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // TLS 검증 비활성화
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		logrus.Errorf("Failed to send Slack notification: %v", err)
