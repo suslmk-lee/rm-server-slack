@@ -25,10 +25,9 @@ func init() {
 }
 
 func SendSlackNotification(event storage.CloudEvent) {
-	//userID := getSlackUserIDByEmail(event.Data.Commentor)
 	userID := getSlackUserIDByEmail(receiverEmail)
 	if userID == "" {
-		logrus.Errorf("Failed to get Slack user ID for email: %s", event.Data.Commentor)
+		logrus.Errorf("Failed to get Slack user ID for email: %s", receiverEmail)
 		return
 	}
 
@@ -80,7 +79,11 @@ func getSlackUserIDByEmail(email string) string {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+slackToken)
 
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // TLS 검증 비활성화
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		logrus.Errorf("Failed to lookup user by email: %v", err)
