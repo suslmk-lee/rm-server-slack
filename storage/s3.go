@@ -1,11 +1,10 @@
 package storage
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,6 +27,7 @@ type CloudEvent struct {
 	DataContentType string    `json:"datacontenttype"`
 	Time            time.Time `json:"time"`
 	Data            EventData `json:"data"`
+	ObjectKey       string    `json:"object_key"` // 파일 이름을 추가
 }
 
 type EventData struct {
@@ -54,11 +54,6 @@ func NewS3Client(region, endpoint, accessKey, secretKey, bucket string) (*S3Clie
 		Endpoint:         aws.String(endpoint),
 		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
 		S3ForcePathStyle: aws.Bool(true), // 경로 스타일을 강제 설정
-		HTTPClient: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // TLS 검증 비활성화
-			},
-		},
 	})
 	if err != nil {
 		return nil, err
@@ -104,8 +99,34 @@ func (client *S3Client) GetEvents(prefix string) ([]CloudEvent, error) {
 			continue
 		}
 
+		event.ObjectKey = *item.Key // 파일 이름을 추가
 		events = append(events, event)
 	}
 
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].Time.Before(events[j].Time)
+	})
+
 	return events, nil
+}
+
+func (client *S3Client) MoveObject(srcKey, dstKey string) error {
+	_, err := client.svc.CopyObject(&s3.CopyObjectInput{
+		Bucket:     aws.String(client.bucket),
+		CopySource: aws.String(client.bucket + "/" + srcKey),
+		Key:        aws.String(dstKey),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to copy object: %v", err)
+	}
+
+	_, err = client.svc.DeleteObject(&s3.DeleteObjectInput{
+		Bucket: aws.String(client.bucket),
+		Key:    aws.String(srcKey),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete object: %v", err)
+	}
+
+	return nil
 }

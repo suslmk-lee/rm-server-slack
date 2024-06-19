@@ -2,30 +2,30 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"os"
 	"rm-server-slack/common"
 	"rm-server-slack/notification"
 	"rm-server-slack/storage"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
-	checkInterval       = 10 * time.Second
-	processedEventsFile = "processed_events.json"
+	checkInterval      = 10 * time.Second
+	processedEventFile = "processed_event_time.json"
+	movedPrefix        = "processed/"
 )
 
 var (
-	bucketName      string
-	region          string
-	endpoint        string
-	accessKey       string
-	secretKey       string
-	processedEvents map[string]bool
-	mutex           = &sync.Mutex{}
-	kst             = time.FixedZone("KST", 9*60*60)
+	bucketName        string
+	region            string
+	endpoint          string
+	accessKey         string
+	secretKey         string
+	lastProcessedTime time.Time
+	mutex             = &sync.Mutex{}
+	kst               = time.FixedZone("KST", 9*60*60) // KST (UTC+9) 시간대
 )
 
 func init() {
@@ -35,16 +35,19 @@ func init() {
 	accessKey = common.ConfInfo["nhn.storage.accessKey"]
 	secretKey = common.ConfInfo["nhn.storage.secretKey"]
 
-	logrus.Printf("init() processedEvents calls")
-	processedEvents = loadProcessedEvents()
+	lastProcessedTime = loadLastProcessedTime()
 }
 
 func main() {
-	logrus.Printf("main() start!")
+	logrus.Infof("Starting application with bucket: %s, region: %s, endpoint: %s", bucketName, region, endpoint)
+
 	s3Client, err := storage.NewS3Client(region, endpoint, accessKey, secretKey, bucketName)
 	if err != nil {
 		logrus.Fatalf("Failed to create session: %v", err)
 	}
+
+	// 바로 버킷을 확인
+	processBucket(s3Client)
 
 	// 주기적으로 버킷을 확인하기 위한 ticker 설정
 	ticker := time.NewTicker(checkInterval)
@@ -54,7 +57,6 @@ func main() {
 		select {
 		case <-ticker.C:
 			if isBusinessHour() {
-				logrus.Printf("processBucket(s3Client) called!")
 				processBucket(s3Client)
 			}
 		}
@@ -67,18 +69,20 @@ func processBucket(s3Client *storage.S3Client) {
 		logrus.Errorf("Failed to get events: %v", err)
 		return
 	}
-	logrus.Printf("Received %d events", len(events))
 
 	for _, event := range events {
 		mutex.Lock()
-		if !processedEvents[event.ID] {
-			processedEvents[event.ID] = true
-			saveProcessedEvents()
+		if event.Time.After(lastProcessedTime) {
+			lastProcessedTime = event.Time
+			saveLastProcessedTime()
 			mutex.Unlock()
 
 			if shouldSendNotification(event) {
-				logrus.Printf("Send Slack notification: %s", event.ID)
 				notification.SendSlackNotification(event)
+				err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
+				if err != nil {
+					logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
+				}
 			}
 		} else {
 			mutex.Unlock()
@@ -105,38 +109,38 @@ func shouldSendNotification(event storage.CloudEvent) bool {
 	return false
 }
 
-func loadProcessedEvents() map[string]bool {
-	file, err := os.Open(processedEventsFile)
+func loadLastProcessedTime() time.Time {
+	file, err := os.Open(processedEventFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return make(map[string]bool)
+			return time.Time{}
 		}
-		logrus.Fatalf("Failed to open processed events file: %v", err)
+		logrus.Fatalf("Failed to open processed event file: %v", err)
 	}
 	defer file.Close()
 
-	var events map[string]bool
-	err = json.NewDecoder(file).Decode(&events)
+	var t time.Time
+	err = json.NewDecoder(file).Decode(&t)
 	if err != nil {
 		if err.Error() == "EOF" {
-			return make(map[string]bool)
+			return time.Time{}
 		}
-		logrus.Fatalf("Failed to decode processed events file: %v", err)
+		logrus.Fatalf("Failed to decode processed event file: %v", err)
 	}
 
-	return events
+	return t
 }
 
-func saveProcessedEvents() {
-	file, err := os.Create(processedEventsFile)
+func saveLastProcessedTime() {
+	file, err := os.Create(processedEventFile)
 	if err != nil {
-		logrus.Errorf("Failed to create processed events file: %v", err)
+		logrus.Errorf("Failed to create processed event file: %v", err)
 		return
 	}
 	defer file.Close()
 
-	err = json.NewEncoder(file).Encode(processedEvents)
+	err = json.NewEncoder(file).Encode(lastProcessedTime)
 	if err != nil {
-		logrus.Errorf("Failed to encode processed events file: %v", err)
+		logrus.Errorf("Failed to encode processed event file: %v", err)
 	}
 }
