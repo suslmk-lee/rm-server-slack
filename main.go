@@ -37,12 +37,6 @@ func init() {
 
 	logrus.Printf("init() processedEvents calls")
 	processedEvents = loadProcessedEvents()
-
-	var err error
-	kst, err = time.LoadLocation("Asia/Seoul")
-	if err != nil {
-		logrus.Fatalf("Failed to load location: %v", err)
-	}
 }
 
 func main() {
