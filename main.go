@@ -25,7 +25,7 @@ var (
 	secretKey       string
 	processedEvents map[string]bool
 	mutex           = &sync.Mutex{}
-	kst             *time.Location
+	kst             = time.FixedZone("KST", 9*60*60)
 )
 
 func init() {
