@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"rm-server-slack/common"
 	"rm-server-slack/storage"
 	"time"
@@ -32,6 +33,7 @@ func SendSlackNotification(event storage.CloudEvent) {
 		return
 	}
 
+	event.Data.Notes = replaceNotes(event.Data.Notes)
 	messageBlocks := createMessageBlocks(event)
 	payload := map[string]interface{}{
 		"channel": userID,
@@ -117,6 +119,12 @@ func getSlackUserIDByEmail(email string) string {
 	return ""
 }
 
+func replaceNotes(notes string) string {
+	notes = regexp.MustCompile(`\*\*\*`).ReplaceAllString(notes, "    -")
+	notes = regexp.MustCompile(`\*\*`).ReplaceAllString(notes, "  -")
+	return notes
+}
+
 func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 	return []map[string]interface{}{
 		{
@@ -130,7 +138,7 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			"type": "section",
 			"text": map[string]string{
 				"type": "mrkdwn",
-				"text": fmt.Sprintf("*New Event*\n*Type:* %s\n*User:* %s\n*Message:* %s\n*Description:* %s\n*Notes:* %s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes),
+				"text": fmt.Sprintf("*New Event*\n*Type:* %s\n*User:* %s\n*Message:* %s\n*Description:* %s\n*Notes:* \n%s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes),
 			},
 		},
 		{
