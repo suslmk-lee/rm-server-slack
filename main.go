@@ -34,10 +34,12 @@ func init() {
 	accessKey = common.ConfInfo["nhn.storage.accessKey"]
 	secretKey = common.ConfInfo["nhn.storage.secretKey"]
 
+	logrus.Printf("init() processedEvents calls")
 	processedEvents = loadProcessedEvents()
 }
 
 func main() {
+	logrus.Printf("main() start!")
 	s3Client, err := storage.NewS3Client(region, endpoint, accessKey, secretKey, bucketName)
 	if err != nil {
 		logrus.Fatalf("Failed to create session: %v", err)
