@@ -105,7 +105,7 @@ func isBusinessHour() bool {
 
 func shouldSendNotification(event storage.CloudEvent) bool {
 	// 필터링 정책을 정의합니다. 예를 들어, 특정 이벤트 유형에 대해서만 알림을 보냅니다.
-	if event.Type == "com.example.issue" && event.Data.Status == "접수(Receipt)" {
+	if event.Type == "com.example.issue" {
 		return true
 	}
 	return false
