@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"rm-server-slack/common"
 	"rm-server-slack/storage"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -31,8 +32,11 @@ func SendSlackNotification(event storage.CloudEvent) {
 		return
 	}
 
-	message := fmt.Sprintf("New Event\nType: %s\nUser: %s\nMessage: %s\nDescription: %s\nNotes: %s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes)
-	payload := map[string]string{"channel": userID, "text": message}
+	messageBlocks := createMessageBlocks(event)
+	payload := map[string]interface{}{
+		"channel": userID,
+		"blocks":  messageBlocks,
+	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		logrus.Errorf("Failed to marshal Slack payload: %v", err)
@@ -111,4 +115,45 @@ func getSlackUserIDByEmail(email string) string {
 
 	logrus.Errorf("Failed to get user ID from Slack API response: %v", result)
 	return ""
+}
+
+func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
+	return []map[string]interface{}{
+		{
+			"type": "section",
+			"text": map[string]string{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*New Event*\n*Type:* %s\n*User:* %s\n*Message:* %s\n*Description:* %s\n*Notes:* %s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes),
+			},
+		},
+		{
+			"type": "section",
+			"fields": []map[string]string{
+				{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*Status:*\n%s", event.Data.Status),
+				},
+				{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*Priority:*\n%s", event.Data.Priority),
+				},
+				{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*Start Date:*\n%s", event.Data.StartDate.Format(time.RFC3339)),
+				},
+				{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*Due Date:*\n%s", event.Data.DueDate.Format(time.RFC3339)),
+				},
+				{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*Author:*\n%s", event.Data.Author),
+				},
+				{
+					"type": "mrkdwn",
+					"text": fmt.Sprintf("*Created On:*\n%s", event.Data.CreatedOn.Format(time.RFC3339)),
+				},
+			},
+		},
+	}
 }
