@@ -1,6 +1,6 @@
 module rm-server-slack
 
-go 1.21.0
+go 1.19
 
 require (
 	github.com/aws/aws-sdk-go v1.54.2
