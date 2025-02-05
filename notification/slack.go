@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"rm-server-slack/common"
 	"rm-server-slack/storage"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -181,14 +180,8 @@ func replaceNotes(notes string) string {
 }
 
 func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
-	return []map[string]interface{}{
-		{
-			"type": "section",
-			"text": map[string]string{
-				"type": "mrkdwn",
-				"text": "*------------------------------*",
-			},
-		},
+	// 기본 헤더와 내용
+	blocks := []map[string]interface{}{
 		{
 			"type": "section",
 			"text": map[string]string{
@@ -196,41 +189,47 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 				"text": fmt.Sprintf("*:large_yellow_circle: 일감 업데이트 :large_yellow_circle:*\n"+
 					"*작성자:* %s\n"+
 					"*일감명:* %s(#%d)\n"+
-					"*업무내용:* \n%s\n"+
-					"*작성내용:* \n%s",
-					event.Data.Assignee, event.Data.Subject, event.Data.JobID, event.Data.Description, "```"+event.Data.Notes+"```"),
-			},
-		},
-		{
-			"type": "section",
-			"fields": []map[string]string{
-				{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Status:*\n%s", event.Data.Status),
-				},
-				{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Priority:*\n%s", event.Data.Priority),
-				},
-				{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Start Date:*\n%s", event.Data.StartDate.Format(time.RFC3339)),
-				},
-				{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Due Date:*\n%s", event.Data.DueDate.Format(time.RFC3339)),
-				},
-				//{
-				//	"type": "mrkdwn",
-				//	"text": fmt.Sprintf("*Author:*\n%s", event.Data.Author),
-				//},
-				{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Created On:*\n%s", event.Data.CreatedOn.Format(time.RFC3339)),
-				},
+					"*업무내용:* \n%s",
+					event.Data.Assignee, event.Data.Subject, event.Data.JobID, event.Data.Description),
 			},
 		},
 	}
+
+	// Notes가 있는 경우 추가
+	if event.Data.Notes != "" {
+		blocks = append(blocks, map[string]interface{}{
+			"type": "section",
+			"text": map[string]string{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*작성내용:* \n```%s```", event.Data.Notes),
+			},
+		})
+	}
+
+	// 공통 메타데이터 추가
+	blocks = append(blocks, map[string]interface{}{
+		"type": "context",
+		"elements": []map[string]string{
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Status:* %s", event.Data.Status),
+			},
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Priority:* %s", event.Data.Priority),
+			},
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Due Date:* %s", event.Data.DueDate.Format("2006-01-02")),
+			},
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Created:* %s", event.Data.CreatedOn.Format("2006-01-02")),
+			},
+		},
+	})
+
+	return blocks
 }
 
 func openConversation(userID string) (string, error) {
