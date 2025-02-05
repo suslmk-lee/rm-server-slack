@@ -2,10 +2,12 @@ package common
 
 import (
 	"bufio"
+	"github.com/sirupsen/logrus"
 	"log"
 	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
 
 type AppConfigProperties map[string]string
@@ -68,4 +70,29 @@ func RandomString(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+type KSTFormatter struct {
+	// TimestampFormat은 포매팅할 타임스탬프의 형식입니다.
+	TimestampFormat string
+	// FullTimestamp가 true이면 전체 타임스탬프를 출력합니다.
+	FullTimestamp bool
+}
+
+func (f *KSTFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	// "Asia/Seoul" 타임존 로드
+	loc, err := time.LoadLocation("Asia/Seoul")
+	if err != nil {
+		return nil, err
+	}
+	// entry.Time을 KST로 변환
+	entry.Time = entry.Time.In(loc)
+
+	// 기본 TextFormatter 생성 (원하는 옵션 전달)
+	formatter := &logrus.TextFormatter{
+		TimestampFormat: f.TimestampFormat,
+		FullTimestamp:   f.FullTimestamp,
+	}
+
+	return formatter.Format(entry)
 }

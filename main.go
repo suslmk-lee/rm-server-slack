@@ -39,6 +39,12 @@ func init() {
 }
 
 func main() {
+	// KST로 변환
+	logrus.SetFormatter(&common.KSTFormatter{
+		TimestampFormat: "2006-01-02 15:04:05",
+		FullTimestamp:   true,
+	})
+
 	logrus.Infof("Starting application with bucket: %s, region: %s, endpoint: %s", bucketName, region, endpoint)
 
 	s3Client, err := storage.NewS3Client(region, endpoint, accessKey, secretKey, bucketName)
@@ -47,24 +53,27 @@ func main() {
 	}
 
 	// 업데이트된 내용에 대한 통보
-	processBucket(s3Client)
+	//processBucket(s3Client)
 
 	// 임박한 이슈에 대한 통보
-	processBucketImminent(s3Client)
+	//processBucketImminent(s3Client)
 
 	// 단일 작업으로 변경하며 아래내용 주석 처리 함.
 	// 주기적으로 버킷을 확인하기 위한 ticker 설정
-	/*ticker := time.NewTicker(checkInterval)
+	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
 			if isBusinessHour() {
+
 				processBucket(s3Client)
+
+				processBucketImminent(s3Client)
 			}
 		}
-	}*/
+	}
 }
 
 func processBucket(s3Client *storage.S3Client) {
@@ -74,25 +83,27 @@ func processBucket(s3Client *storage.S3Client) {
 		return
 	}
 
-	for _, event := range events {
-		//mutex.Lock()
-		if event.Time.After(lastProcessedTime) {
-			lastProcessedTime = event.Time
-			saveLastProcessedTime()
-			//mutex.Unlock()
+	if len(events) > 0 {
+		for _, event := range events {
+			//mutex.Lock()
+			if event.Time.After(lastProcessedTime) {
+				lastProcessedTime = event.Time
+				saveLastProcessedTime()
+				//mutex.Unlock()
 
-			if shouldSendNotification(event) {
-				notification.SendSlackNotification(event)
-				err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
-				if err != nil {
-					logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
+				if shouldSendNotification(event) {
+					notification.SendSlackNotification(event)
+					err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
+					if err != nil {
+						logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
+					}
 				}
+			} else {
+				//mutex.Unlock()
 			}
-		} else {
-			//mutex.Unlock()
 		}
+		logrus.Infof("Everything in the bucket (suslmk-storage/issue) has been processed.", " events.length", len(events))
 	}
-	logrus.Infof("All events processed. Exiting program.")
 }
 
 func processBucketImminent(s3Client *storage.S3Client) {
@@ -102,25 +113,27 @@ func processBucketImminent(s3Client *storage.S3Client) {
 		return
 	}
 
-	for _, event := range events {
-		//mutex.Lock()
-		if event.Time.After(lastProcessedTime) {
-			lastProcessedTime = event.Time
-			saveLastProcessedTime()
-			//mutex.Unlock()
+	if len(events) > 0 {
+		for _, event := range events {
+			//mutex.Lock()
+			if event.Time.After(lastProcessedTime) {
+				lastProcessedTime = event.Time
+				saveLastProcessedTime()
+				//mutex.Unlock()
 
-			if shouldSendNotification(event) {
-				notification.SendSlackNotification(event)
-				err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
-				if err != nil {
-					logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
+				if shouldSendNotification(event) {
+					notification.SendSlackNotification(event)
+					err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
+					if err != nil {
+						logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)
+					}
 				}
+			} else {
+				//mutex.Unlock()
 			}
-		} else {
-			//mutex.Unlock()
 		}
+		logrus.Infof("Everything in the bucket (suslmk-storage/imminentIssue) has been processed.", " events.length", len(events))
 	}
-	logrus.Infof("All events processed. Exiting program.")
 }
 
 func isBusinessHour() bool {
