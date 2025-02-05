@@ -9,7 +9,7 @@ import (
 	"github.com/slack-go/slack"
 )
 
-func main() {
+func test() {
 	// 환경 변수에서 Slack Bot Token 읽기
 	token := common.ConfInfo["slack.bot.token"]
 	if token == "" {

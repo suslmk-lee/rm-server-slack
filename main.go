@@ -122,7 +122,7 @@ func processBucketImminent(s3Client *storage.S3Client) {
 				//mutex.Unlock()
 
 				if shouldSendNotification(event) {
-					notification.SendSlackNotification(event)
+					notification.SendSlackNotificationPrivate(event)
 					err = s3Client.MoveObject(event.ObjectKey, movedPrefix+event.ObjectKey)
 					if err != nil {
 						logrus.Errorf("Failed to move object %s: %v", event.ObjectKey, err)

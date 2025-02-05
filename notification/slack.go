@@ -74,6 +74,61 @@ func SendSlackNotification(event storage.CloudEvent) {
 	}
 }
 
+func SendSlackNotificationPrivate(event storage.CloudEvent) {
+	userID := getSlackUserIDByEmail(event.Data.Email)
+	if userID == "" {
+		logrus.Errorf("Failed to get Slack user ID for email: %s", event.Data.Email)
+		return
+	}
+
+	// Open DM conversation
+	channelID, err := openConversation(userID)
+	if err != nil {
+		logrus.Errorf("Failed to open DM conversation: %v", err)
+		return
+	}
+
+	event.Data.Notes = replaceNotes(event.Data.Notes)
+	messageBlocks := createMessageBlocks(event)
+	payload := map[string]interface{}{
+		"channel": channelID,
+		"blocks":  messageBlocks,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		logrus.Errorf("Failed to marshal Slack payload: %v", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", "https://slack.com/api/chat.postMessage", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		logrus.Errorf("Failed to create new request: %v", err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+slackToken)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		logrus.Errorf("Failed to send Slack notification: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		logrus.Errorf("Slack API responded with status %d: %s", resp.StatusCode, string(bodyBytes))
+	} else {
+		logrus.Infof("Slack DM sent successfully to user: %s", event.Data.Email)
+	}
+}
+
 func getSlackUserIDByEmail(email string) string {
 	url := fmt.Sprintf("https://slack.com/api/users.lookupByEmail?email=%s", email)
 	req, err := http.NewRequest("GET", url, nil)
@@ -176,4 +231,51 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			},
 		},
 	}
+}
+
+func openConversation(userID string) (string, error) {
+	payload := map[string]interface{}{
+		"users": userID,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://slack.com/api/conversations.open", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+slackToken)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to open conversation: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Ok      bool `json:"ok"`
+		Channel struct {
+			ID string `json:"id"`
+		} `json:"channel"`
+		Error string `json:"error"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	if !result.Ok {
+		return "", fmt.Errorf("slack API error: %s", result.Error)
+	}
+
+	return result.Channel.ID, nil
 }

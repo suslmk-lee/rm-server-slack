@@ -34,20 +34,24 @@ type CloudEvent struct {
 
 type EventData struct {
 	ID             int       `json:"id"`
+	LoginID        string    `json:"login"`
 	JobID          int       `json:"job_id"`
 	Status         string    `json:"status"`
+	StatusID       int       `json:"status_id"`
 	Assignee       string    `json:"assignee"`
 	StartDate      time.Time `json:"start_date"`
 	DueDate        time.Time `json:"due_date"`
 	DoneRatio      int       `json:"done_ratio"`
-	EstimatedHours int       `json:"estimated_hours"`
+	EstimatedHours float64   `json:"estimated_hours"`
 	Priority       string    `json:"priority"`
 	Author         string    `json:"author"`
+	Email          string    `json:"email"`
 	Subject        string    `json:"subject"`
 	Description    string    `json:"description"`
 	Commentor      string    `json:"commentor"`
 	Notes          string    `json:"notes"`
 	CreatedOn      time.Time `json:"created_on"`
+	UpdatedOn      time.Time `json:"updated_on"`
 }
 
 func NewS3Client(region, endpoint, accessKey, secretKey, bucket string) (*S3Client, error) {
