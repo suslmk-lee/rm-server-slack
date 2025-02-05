@@ -138,7 +138,12 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			"type": "section",
 			"text": map[string]string{
 				"type": "mrkdwn",
-				"text": fmt.Sprintf("*New Event*\n*Type:* %s\n*User:* %s\n*Message:* %s\n*Description:* %s\n*Notes:* \n%s", event.Type, event.Data.Assignee, event.Data.Subject, event.Data.Description, event.Data.Notes),
+				"text": fmt.Sprintf("*:large_yellow_circle: 일감 업데이트 :large_yellow_circle:*\n"+
+					"*작성자:* %s\n"+
+					"*일감명:* %s(#%d)\n"+
+					"*업무내용:* \n%s\n"+
+					"*작성내용:* \n%s",
+					event.Data.Assignee, event.Data.Subject, event.Data.JobID, event.Data.Description, "```"+event.Data.Notes+"```"),
 			},
 		},
 		{
@@ -160,10 +165,10 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 					"type": "mrkdwn",
 					"text": fmt.Sprintf("*Due Date:*\n%s", event.Data.DueDate.Format(time.RFC3339)),
 				},
-				{
-					"type": "mrkdwn",
-					"text": fmt.Sprintf("*Author:*\n%s", event.Data.Author),
-				},
+				//{
+				//	"type": "mrkdwn",
+				//	"text": fmt.Sprintf("*Author:*\n%s", event.Data.Author),
+				//},
 				{
 					"type": "mrkdwn",
 					"text": fmt.Sprintf("*Created On:*\n%s", event.Data.CreatedOn.Format(time.RFC3339)),
