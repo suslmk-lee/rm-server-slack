@@ -186,8 +186,7 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			"type": "section",
 			"text": map[string]string{
 				"type": "mrkdwn",
-				"text": fmt.Sprintf("*:large_yellow_circle: 일감 업데이트 :large_yellow_circle:*\n"+
-					"*작성자:* %s\n"+
+				"text": fmt.Sprintf("*:large_yellow_circle: %s :large_yellow_circle:*\n"+
 					"*일감명:* %s(#%d)\n"+
 					"*업무내용:* \n%s",
 					event.Data.Assignee, event.Data.Subject, event.Data.JobID, event.Data.Description),
@@ -202,6 +201,16 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			"text": map[string]string{
 				"type": "mrkdwn",
 				"text": fmt.Sprintf("*작성내용:* \n```%s```", event.Data.Notes),
+			},
+		})
+	}
+
+	if event.Data.Property != "" {
+		blocks = append(blocks, map[string]interface{}{
+			"type": "section",
+			"text": map[string]string{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*%s:* \n```%s => %s```", event.Data.PropKey, event.Data.OldValue, event.Data.Value),
 			},
 		})
 	}
