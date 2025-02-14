@@ -404,18 +404,20 @@ func getPropName(propKey string) string {
 
 func getStatusName(statusID int) string {
 	switch statusID {
+	case 0:
+		return "접수(Receipt)"
 	case 1:
-		return "1"
+		return "대기(Waiting)"
 	case 2:
-		return "2"
+		return "진행(Progress)"
 	case 3:
-		return "3"
+		return "해결(Solve)"
 	case 4:
 		return "의견(Opinion)"
 	case 5:
 		return "완료(Completetion)"
 	case 6:
-		return "6"
+		return "거절(Deny)"
 	case 7:
 		return "중지(Pause)"
 	default:
