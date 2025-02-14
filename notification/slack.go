@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"rm-server-slack/common"
 	"rm-server-slack/storage"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
 // alarm-app bot Token
@@ -415,6 +416,8 @@ func getStatusName(statusID int) string {
 		return "완료(Completetion)"
 	case 6:
 		return "6"
+	case 7:
+		return "중지(Pause)"
 	default:
 		return "unknown"
 	}
