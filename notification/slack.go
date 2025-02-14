@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"rm-server-slack/common"
 	"rm-server-slack/storage"
-
-	"github.com/sirupsen/logrus"
+	"strconv"
 )
 
 // alarm-app bot Token
@@ -88,7 +88,7 @@ func SendSlackNotificationPrivate(event storage.CloudEvent) {
 	}
 
 	event.Data.Notes = replaceNotes(event.Data.Notes)
-	messageBlocks := createMessageBlocks(event)
+	messageBlocks := createMessageBlocksPrivate(event)
 	payload := map[string]interface{}{
 		"channel": channelID,
 		"blocks":  messageBlocks,
@@ -181,15 +181,24 @@ func replaceNotes(notes string) string {
 
 func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 	// 기본 헤더와 내용
+	var messageText string
+	if event.Data.DoneRatio > 0 {
+		messageText = fmt.Sprintf("*:large_yellow_circle: %s :large_yellow_circle:*\n"+
+			"*일감명:* %s(#%d)",
+			event.Data.Assignee, event.Data.Subject, event.Data.JobID)
+	} else {
+		messageText = fmt.Sprintf("*:large_yellow_circle: %s :large_yellow_circle:*\n"+
+			"*일감명:* %s(#%d)\n"+
+			"*업무내용:* \n%s",
+			event.Data.Assignee, event.Data.Subject, event.Data.JobID, event.Data.Description)
+	}
+
 	blocks := []map[string]interface{}{
 		{
 			"type": "section",
 			"text": map[string]string{
 				"type": "mrkdwn",
-				"text": fmt.Sprintf("*:large_yellow_circle: %s :large_yellow_circle:*\n"+
-					"*일감명:* %s(#%d)\n"+
-					"*업무내용:* \n%s",
-					event.Data.Assignee, event.Data.Subject, event.Data.JobID, event.Data.Description),
+				"text": messageText,
 			},
 		},
 	}
@@ -210,7 +219,7 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 			"type": "section",
 			"text": map[string]string{
 				"type": "mrkdwn",
-				"text": fmt.Sprintf("*%s:* \n```%s => %s```", event.Data.PropKey, event.Data.OldValue, event.Data.Value),
+				"text": formatPropertyChange(event.Data.PropKey, event.Data.OldValue, event.Data.Value),
 			},
 		})
 	}
@@ -239,6 +248,176 @@ func createMessageBlocks(event storage.CloudEvent) []map[string]interface{} {
 	})
 
 	return blocks
+}
+
+func createMessageBlocksPrivate(event storage.CloudEvent) []map[string]interface{} {
+	// 기본 헤더와 내용
+	blocks := []map[string]interface{}{
+		{
+			"type": "section",
+			"text": map[string]string{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*:large_red_circle: %s :large_red_circle:*\n"+
+					"*일감명:* %s(#%d)\n"+
+					"*담당자:* %s",
+					"금일완료예정", event.Data.Subject, event.Data.JobID, event.Data.Assignee),
+			},
+		},
+	}
+
+	if event.Data.Property != "" {
+		blocks = append(blocks, map[string]interface{}{
+			"type": "section",
+			"text": map[string]string{
+				"type": "mrkdwn",
+				"text": formatPropertyChange(event.Data.PropKey, event.Data.OldValue, event.Data.Value),
+			},
+		})
+	}
+
+	// 공통 메타데이터 추가
+	blocks = append(blocks, map[string]interface{}{
+		"type": "context",
+		"elements": []map[string]string{
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Status:* %s", event.Data.Status),
+			},
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Priority:* %s", event.Data.Priority),
+			},
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Due Date:* %s", event.Data.DueDate.Format("2006-01-02")),
+			},
+			{
+				"type": "mrkdwn",
+				"text": fmt.Sprintf("*Created:* %s", event.Data.CreatedOn.Format("2006-01-02")),
+			},
+		},
+	})
+
+	return blocks
+}
+
+func formatPropertyChange(propKey, oldValue, newValue string) string {
+	propName := getPropName(propKey)
+
+	if propKey == "done_ratio" {
+		oldRatio, _ := strconv.Atoi(oldValue)
+		newRatio, _ := strconv.Atoi(newValue)
+		diff := newRatio - oldRatio
+
+		var progressBar string
+		if diff > 0 {
+			// 증가: 기존 수치는 검은색, 증가분은 녹색
+			progressBar = createProgressBarWithIncrease(oldRatio, newRatio)
+			return fmt.Sprintf("*%s:* \n%s :: +%d%%", propName, progressBar, diff)
+		} else {
+			// 감소: 감소된 수치는 빨간색
+			progressBar = createProgressBarWithDecrease(oldRatio, newRatio)
+			return fmt.Sprintf("*%s:* \n%s :: %d%%", propName, progressBar, diff)
+		}
+	} else if propKey == "status_id" {
+		oldID, _ := strconv.Atoi(oldValue)
+		newID, _ := strconv.Atoi(newValue)
+		return fmt.Sprintf("*%s:* \n`%s` => `%s`",
+			propName,
+			getStatusName(oldID),
+			getStatusName(newID))
+	}
+
+	return fmt.Sprintf("*%s:* \n```%s => %s```", propName, oldValue, newValue)
+}
+
+func createProgressBarWithIncrease(oldRatio, newRatio int) string {
+	const totalBlocks = 10
+	oldBlocks := (oldRatio * totalBlocks) / 100
+	newBlocks := (newRatio * totalBlocks) / 100
+
+	var progressBar string
+	for i := 0; i < totalBlocks; i++ {
+		if i < oldBlocks {
+			progressBar += "⬛" // 기존 진행률 (검은색)
+		} else if i < newBlocks {
+			progressBar += "🟩" // 증가분 (녹색)
+		} else {
+			progressBar += "⬜" // 남은 부분 (흰색)
+		}
+	}
+
+	return progressBar
+}
+
+func createProgressBarWithDecrease(oldRatio, newRatio int) string {
+	const totalBlocks = 10
+	newBlocks := (newRatio * totalBlocks) / 100
+
+	var progressBar string
+	for i := 0; i < totalBlocks; i++ {
+		if i < newBlocks {
+			progressBar += "⬛" // 현재 진행률 (검은색)
+		} else {
+			progressBar += "🟥" // 감소분 (빨간색)
+		}
+	}
+
+	return progressBar
+}
+
+func getPropName(propKey string) string {
+	switch propKey {
+	case "status_id":
+		return "진행상태"
+	case "due_date":
+		return "마감일"
+	case "done_ratio":
+		return "완료율"
+	case "tracker_id":
+		return "트래커"
+	case "parent_id":
+		return "상위일감"
+	case "child_id":
+		return "하위일감"
+	case "description":
+		return "설명"
+	case "priority_id":
+		return "우선순위"
+	case "precedes":
+		return "이전"
+	case "follows":
+		return "팔로워"
+	case "subject":
+		return "일감명"
+	case "start_date":
+		return "시작일"
+	case "estimated_hours":
+		return "수행시간"
+	case "assigned_to_id":
+		return "담당자"
+	default:
+		return propKey
+	}
+}
+
+func getStatusName(statusID int) string {
+	switch statusID {
+	case 1:
+		return "1"
+	case 2:
+		return "2"
+	case 3:
+		return "3"
+	case 4:
+		return "의견(Opinion)"
+	case 5:
+		return "완료(Completetion)"
+	case 6:
+		return "6"
+	default:
+		return "unknown"
+	}
 }
 
 func openConversation(userID string) (string, error) {

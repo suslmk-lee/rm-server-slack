@@ -141,7 +141,7 @@ func isBusinessHour() bool {
 	day := now.Weekday()
 	hour := now.Hour()
 
-	if day >= time.Monday && day <= time.Friday && hour >= 9 && hour < 18 {
+	if day >= time.Monday && day <= time.Friday && hour >= 8 && hour < 19 {
 		return true
 	}
 	return false
