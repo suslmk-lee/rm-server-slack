@@ -2,13 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/sirupsen/logrus"
 	"os"
 	"rm-server-slack/common"
 	"rm-server-slack/notification"
 	"rm-server-slack/storage"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -85,6 +86,9 @@ func processBucket(s3Client *storage.S3Client) {
 
 	if len(events) > 0 {
 		for _, event := range events {
+			if event.Data.PropKey == "child_id" || event.Data.PropKey == "parent_id" || event.Data.PropKey == "tracker_id" {
+				continue
+			}
 			//mutex.Lock()
 			if event.Time.After(lastProcessedTime) {
 				lastProcessedTime = event.Time

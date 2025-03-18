@@ -11,6 +11,7 @@ import (
 	"rm-server-slack/common"
 	"rm-server-slack/storage"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -18,6 +19,27 @@ import (
 // alarm-app bot Token
 var slackToken string
 var receiverEmail string
+
+const (
+	AssigneeNone  = 0
+	AssigneeLee   = 1
+	AssigneeKim   = 9
+	AssigneeKang  = 7
+	AssigneeLeeSY = 12
+	AssigneeJang  = 6
+	AssigneeNam   = 13
+)
+
+const (
+	AssigneeNameNone    = "미할당"
+	AssigneeNameLee     = "이민규"
+	AssigneeNameKim     = "김태우"
+	AssigneeNameKang    = "강지훈"
+	AssigneeNameLeeSY   = "이세영"
+	AssigneeNameJang    = "장진영"
+	AssigneeNameNam     = "남동윤"
+	AssigneeNameUnknown = "담당자-%d" // 알 수 없는 ID의 경우 기본 포맷
+)
 
 func init() {
 	slackToken = common.ConfInfo["slack.bot.token"]
@@ -327,9 +349,40 @@ func formatPropertyChange(propKey, oldValue, newValue string) string {
 			propName,
 			getStatusName(oldID),
 			getStatusName(newID))
+	} else if propKey == "assigned_to_id" {
+		oldID, _ := strconv.Atoi(oldValue)
+		newID, _ := strconv.Atoi(newValue)
+		return fmt.Sprintf("*%s:* \n`%s` => `%s`",
+			propName,
+			getAssigneeName(oldID),
+			getAssigneeName(newID))
+	} else if propKey == "start_date" || propKey == "due_date" {
+		// 날짜 형식 변환 (YYYY-MM-DD -> YYYY년 MM월 DD일)
+		formattedOldDate := formatDate(oldValue)
+		formattedNewDate := formatDate(newValue)
+		return fmt.Sprintf("*%s:* \n`%s` => `%s`",
+			propName,
+			formattedOldDate,
+			formattedNewDate)
 	}
 
 	return fmt.Sprintf("*%s:* \n```%s => %s```", propName, oldValue, newValue)
+}
+
+// formatDate는 YYYY-MM-DD 형식의 날짜 문자열을 YYYY년 MM월 DD일 형식으로 변환합니다.
+func formatDate(dateStr string) string {
+	if dateStr == "" {
+		return "미설정"
+	}
+
+	// 날짜 파싱
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return dateStr // 파싱 실패 시 원본 반환
+	}
+
+	// 한국어 형식으로 변환
+	return date.Format("2006년 01월 02일")
 }
 
 func createProgressBarWithIncrease(oldRatio, newRatio int) string {
@@ -422,6 +475,27 @@ func getStatusName(statusID int) string {
 		return "중지(Pause)"
 	default:
 		return "unknown"
+	}
+}
+
+func getAssigneeName(assigneeID int) string {
+	switch assigneeID {
+	case AssigneeNone:
+		return AssigneeNameNone
+	case AssigneeLee:
+		return AssigneeNameLee
+	case AssigneeKim:
+		return AssigneeNameKim
+	case AssigneeKang:
+		return AssigneeNameKang
+	case AssigneeLeeSY:
+		return AssigneeNameLeeSY
+	case AssigneeJang:
+		return AssigneeNameJang
+	case AssigneeNam:
+		return AssigneeNameNam
+	default:
+		return fmt.Sprintf(AssigneeNameUnknown, assigneeID)
 	}
 }
 
