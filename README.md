@@ -1,7 +1,7 @@
 ### rm-server-slack
 
 ```shell
-docker build -t 44ce789b-kr1-registry.container.nhncloud.com/container-platform-registry/rm-server-slack .
+docker build -t 44ce789b-kr1-registry.container.nhncloud.com/container-platform-registry/rm-server-slack:v1.0.2 .
 
-docker push 44ce789b-kr1-registry.container.nhncloud.com/container-platform-registry/rm-server-slack 
+docker push 44ce789b-kr1-registry.container.nhncloud.com/container-platform-registry/rm-server-slack:v1.0.2 
 ```
