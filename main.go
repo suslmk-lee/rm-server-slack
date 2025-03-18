@@ -64,15 +64,10 @@ func main() {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			if isBusinessHour() {
-
-				processBucket(s3Client)
-
-				processBucketImminent(s3Client)
-			}
+	for range ticker.C {
+		if isBusinessHour() {
+			processBucket(s3Client)
+			processBucketImminent(s3Client)
 		}
 	}
 }
@@ -106,7 +101,7 @@ func processBucket(s3Client *storage.S3Client) {
 				//mutex.Unlock()
 			}
 		}
-		logrus.Infof("Everything in the bucket (suslmk-storage/issue) has been processed.", " events.length", len(events))
+		logrus.Info("Everything in the bucket (suslmk-storage/issue) has been processed.", " events.length", len(events))
 	}
 }
 
@@ -136,7 +131,7 @@ func processBucketImminent(s3Client *storage.S3Client) {
 				//mutex.Unlock()
 			}
 		}
-		logrus.Infof("Everything in the bucket (suslmk-storage/imminentIssue) has been processed.", " events.length", len(events))
+		logrus.Info("Everything in the bucket (suslmk-storage/imminentIssue) has been processed.", " events.length", len(events))
 	}
 }
 
@@ -153,10 +148,7 @@ func isBusinessHour() bool {
 
 func shouldSendNotification(event storage.CloudEvent) bool {
 	// 필터링 정책을 정의합니다. 예를 들어, 특정 이벤트 유형에 대해서만 알림을 보냅니다.
-	if event.Type == "com.example.issue" {
-		return true
-	}
-	return false
+	return event.Type == "com.example.issue"
 }
 
 func loadLastProcessedTime() time.Time {

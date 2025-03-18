@@ -404,7 +404,7 @@ func createProgressBarWithIncrease(oldRatio, newRatio int) string {
 	return progressBar
 }
 
-func createProgressBarWithDecrease(oldRatio, newRatio int) string {
+func createProgressBarWithDecrease(_, newRatio int) string {
 	const totalBlocks = 10
 	newBlocks := (newRatio * totalBlocks) / 100
 
