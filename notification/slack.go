@@ -458,9 +458,9 @@ func getPropName(propKey string) string {
 func getStatusName(statusID int) string {
 	switch statusID {
 	case 0:
-		return "접수(Receipt)"
-	case 1:
 		return "대기(Waiting)"
+	case 1:
+		return "접수(Receipt)"
 	case 2:
 		return "진행(Progress)"
 	case 3:
